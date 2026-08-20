@@ -1,13 +1,40 @@
--- ============================================
--- 🔥 АВТО-ФЛИНГ (ПОЛНАЯ ВЕРСИЯ С СОХРАНЕНИЕМ)
--- ============================================
+--[[
+    🔥 АВТО-ФЛИНГ + АВТО-РЕЖОЙН + ВОССТАНОВЛЕНИЕ ПОСЛЕ СМЕРТИ
+    - Автоматически выбирает всех игроков
+    - Автоматически запускает флинг
+    - Режойн каждые 10 минут
+    - После реджойна всё повторяется
+    - ✅ ВОССТАНАВЛИВАЕТСЯ ПОСЛЕ СМЕРТИ ПЕРСОНАЖА
+    - ✅ РУЧНОЙ РЕДЖОЙН БЕЗ ОЖИДАНИЯ
+    - ✅ СПИСОК АКТИВНЫХ ИГРОКОВ
+    - ✅ СОХРАНЕНИЕ ПОСЛЕ ПЕРЕХОДА (через GitHub)
+]]
 
-print("🚀 Запуск скрипта...")
+-- ============================================
+-- ⚠️ ВАЖНО: ЗАМЕНИ ЭТУ ССЫЛКУ НА СВОЮ!
+-- ============================================
+local SCRIPT_URL = "https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling.lua"
+-- Если файл называется по-другому, замени название выше
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TeleportService = game:GetService("TeleportService")
-local Player = Players.LocalPlayer
+-- ============================================
+-- 📦 ПРОВЕРКА QUEUE_ON_TELEPORT
+-- ============================================
+local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or (Krnl and Krnl.queue_on_teleport)
+
+if queueteleport then
+    print("[✅] queue_on_teleport поддерживается! Скрипт будет перезапускаться автоматически.")
+else
+    print("[⚠️] queue_on_teleport НЕ поддерживается! Для Xeno используй Auto-Execute.")
+end
+
+-- ============================================
+-- 🛡️ ЗАЩИТА ОТ ПОВТОРНОГО ЗАПУСКА
+-- ============================================
+if getgenv().FlingRunning then
+    print("[Скрипт] Уже запущен на этом сервере!")
+    return
+end
+getgenv().FlingRunning = true
 
 -- ============================================
 -- 📦 ДАННЫЕ (СОХРАНЯЮТСЯ В getgenv)
@@ -17,21 +44,47 @@ if not getgenv().FlingData then
         Active = false,
         Targets = {},
         RejoinCount = 0,
-        ScriptRunning = false
+        AutoRejoin = true
     }
 end
 
--- Защита от повторного запуска на одном сервере
-if getgenv().FlingData.ScriptRunning then
-    print("[Скрипт] Уже запущен на этом сервере!")
-    return
+-- ============================================
+-- 🔄 ПЕРЕЗАПУСК ПОСЛЕ ПЕРЕХОДА (ЧЕРЕЗ GITHUB)
+-- ============================================
+if queueteleport then
+    game.Players.LocalPlayer.OnTeleport:Connect(function()
+        print("[Скрипт] Обнаружен переход на другой сервер!")
+        print("[Скрипт] Ставлю в очередь на выполнение...")
+        
+        -- Сбрасываем флаг, чтобы скрипт мог перезапуститься
+        getgenv().FlingRunning = false
+        
+        -- Ставим скрипт в очередь на выполнение ПОСЛЕ перехода
+        queueteleport([[
+            loadstring(game:HttpGet(']] .. SCRIPT_URL .. [['))()
+        ]])
+        
+        print("[✅] Скрипт будет перезапущен после загрузки нового сервера!")
+    end)
+    print("[✅] Авто-перезапуск после перехода включён!")
 end
-getgenv().FlingData.ScriptRunning = true
 
+-- ============================================
+-- 📌 ОСНОВНОЙ СКРИПТ
+-- ============================================
+
+-- ========== СЛУЖБЫ ==========
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local Player = Players.LocalPlayer
+
+-- ========== ПЕРЕМЕННЫЕ ==========
 local FlingActive = getgenv().FlingData.Active or false
 local SelectedTargets = {}
 local RejoinTimer = nil
 local RejoinCount = getgenv().FlingData.RejoinCount or 0
+local AutoRejoinActive = getgenv().FlingData.AutoRejoin
 local GuiCreated = false
 
 getgenv().OldPos = nil
@@ -45,9 +98,7 @@ for _, name in ipairs(getgenv().FlingData.Targets or {}) do
     end
 end
 
--- ============================================
--- 💾 СОХРАНЕНИЕ СОСТОЯНИЯ
--- ============================================
+-- ========== СОХРАНЕНИЕ ==========
 local function SaveState()
     local targetNames = {}
     for name in pairs(SelectedTargets) do
@@ -56,333 +107,638 @@ local function SaveState()
     getgenv().FlingData.Targets = targetNames
     getgenv().FlingData.Active = FlingActive
     getgenv().FlingData.RejoinCount = RejoinCount
+    getgenv().FlingData.AutoRejoin = AutoRejoinActive
 end
 
--- ============================================
--- 🌐 ПЕРЕХОД НА ДРУГОЙ СЕРВЕР
--- ============================================
-local function JoinOtherServer()
-    if getgenv().IsJoining then return end
-    getgenv().IsJoining = true
-    
-    print("[Скрипт] Переход на другой сервер...")
-    
-    if FlingActive then
-        FlingActive = false
-    end
-    SaveState()
-    
-    -- Сбрасываем флаг, чтобы скрипт мог перезапуститься на новом сервере
-    getgenv().FlingData.ScriptRunning = false
-    
-    TeleportService:Teleport(game.PlaceId, Player)
-    
-    wait(5)
-    getgenv().IsJoining = false
-end
-
--- ============================================
--- 🖥️ GUI
--- ============================================
+-- ========== GUI ==========
 local function CreateGUI()
     if GuiCreated then return end
-    
+
     local oldGui = game:GetService("CoreGui"):FindFirstChild("AutoFlingGUI")
     if oldGui then oldGui:Destroy() end
-    
+
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "AutoFlingGUI"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = game:GetService("CoreGui")
-    
+
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 120)
-    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -60)
+    MainFrame.Size = UDim2.new(0, 350, 0, 520)
+    MainFrame.Position = UDim2.new(0.5, -175, 0.5, -260)
     MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
     MainFrame.Draggable = true
     MainFrame.Parent = ScreenGui
-    
+
+    -- Заголовок
     local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.Size = UDim2.new(1, 0, 0, 35)
     Title.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
-    Title.Text = "🔥 АВТО-ФЛИНГ"
+    Title.Text = "🔥 АВТО-УБИЙСТВО 🔥"
     Title.TextColor3 = Color3.fromRGB(255, 50, 50)
     Title.Font = Enum.Font.SourceSansBold
-    Title.TextSize = 16
+    Title.TextSize = 20
     Title.Parent = MainFrame
-    
-    local StartBtn = Instance.new("TextButton")
-    StartBtn.Position = UDim2.new(0, 10, 0, 40)
-    StartBtn.Size = UDim2.new(0, 80, 0, 30)
-    StartBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
-    StartBtn.BorderSizePixel = 0
-    StartBtn.Text = "▶ СТАРТ"
-    StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    StartBtn.Font = Enum.Font.SourceSansBold
-    StartBtn.TextSize = 14
-    StartBtn.Parent = MainFrame
-    
-    local StopBtn = Instance.new("TextButton")
-    StopBtn.Position = UDim2.new(0, 100, 0, 40)
-    StopBtn.Size = UDim2.new(0, 80, 0, 30)
-    StopBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-    StopBtn.BorderSizePixel = 0
-    StopBtn.Text = "⏹ СТОП"
-    StopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    StopBtn.Font = Enum.Font.SourceSansBold
-    StopBtn.TextSize = 14
-    StopBtn.Parent = MainFrame
-    
-    local RejoinBtn = Instance.new("TextButton")
-    RejoinBtn.Position = UDim2.new(0, 10, 0, 80)
-    RejoinBtn.Size = UDim2.new(0, 170, 0, 25)
-    RejoinBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
-    RejoinBtn.BorderSizePixel = 0
-    RejoinBtn.Text = "🌐 ДРУГОЙ СЕРВЕР"
-    RejoinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    RejoinBtn.Font = Enum.Font.SourceSansBold
-    RejoinBtn.TextSize = 12
-    RejoinBtn.Parent = MainFrame
-    
-    StartBtn.MouseButton1Click:Connect(StartFling)
-    StopBtn.MouseButton1Click:Connect(StopFling)
-    RejoinBtn.MouseButton1Click:Connect(JoinOtherServer)
-    
-    GuiCreated = true
-    print("[GUI] Создан!")
-end
 
--- ============================================
--- 🌀 ФЛИНГ
--- ============================================
-local function SkidFling(TargetPlayer)
-    local Character = Player.Character
-    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-    local RootPart = Humanoid and Humanoid.RootPart
-    
-    if not Character or not Humanoid or not RootPart or Humanoid.Health <= 0 then
-        return false
-    end
-    
-    local TCharacter = TargetPlayer.Character
-    if not TCharacter then return false end
-    
-    local TRootPart = TCharacter:FindFirstChild("HumanoidRootPart")
-    if not TRootPart then return false end
-    
-    workspace.FallenPartsDestroyHeight = 0/0
-    
-    local BV = Instance.new("BodyVelocity")
-    BV.Parent = RootPart
-    BV.Velocity = Vector3.new(0, 0, 0)
-    BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-    
-    Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-    
-    local Angle = 0
-    for i = 1, 10 do
-        if not RootPart or not TRootPart then break end
-        Angle = Angle + 100
-        
-        RootPart.CFrame = CFrame.new(TRootPart.Position) * CFrame.new(0, 1.5, 0) * CFrame.Angles(math.rad(Angle), 0, 0)
-        Character:SetPrimaryPartCFrame(CFrame.new(TRootPart.Position) * CFrame.new(0, 1.5, 0) * CFrame.Angles(math.rad(Angle), 0, 0))
-        RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
-        RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
-        task.wait()
-        
-        RootPart.CFrame = CFrame.new(TRootPart.Position) * CFrame.new(0, -1.5, 0) * CFrame.Angles(math.rad(Angle), 0, 0)
-        Character:SetPrimaryPartCFrame(CFrame.new(TRootPart.Position) * CFrame.new(0, -1.5, 0) * CFrame.Angles(math.rad(Angle), 0, 0))
-        RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
-        RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
-        task.wait()
-    end
-    
-    BV:Destroy()
-    Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-    workspace.FallenPartsDestroyHeight = getgenv().FPDH or -500
-    
-    return true
-end
+    -- Кнопка закрытия
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Position = UDim2.new(1, -35, 0, 0)
+    CloseButton.Size = UDim2.new(0, 35, 0, 35)
+    CloseButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    CloseButton.BorderSizePixel = 0
+    CloseButton.Text = "✕"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.Font = Enum.Font.SourceSansBold
+    CloseButton.TextSize = 20
+    CloseButton.Parent = Title
 
--- ============================================
--- 🎮 УПРАВЛЕНИЕ
--- ============================================
-function StartFling()
-    if FlingActive then return end
-    
-    local count = 0
-    for _ in pairs(SelectedTargets) do count = count + 1 end
-    if count == 0 then
-        print("[Скрипт] Нет целей!")
-        SelectAllPlayers()
-        wait(1)
-        count = 0
+    -- Статус
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Position = UDim2.new(0, 10, 0, 45)
+    StatusLabel.Size = UDim2.new(1, -20, 0, 22)
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Text = "⚔️ Загрузка..."
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
+    StatusLabel.Font = Enum.Font.SourceSans
+    StatusLabel.TextSize = 15
+    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    StatusLabel.Parent = MainFrame
+
+    -- Инфо о реджойне
+    local InfoLabel = Instance.new("TextLabel")
+    InfoLabel.Position = UDim2.new(0, 10, 0, 67)
+    InfoLabel.Size = UDim2.new(1, -20, 0, 18)
+    InfoLabel.BackgroundTransparency = 1
+    InfoLabel.Text = "Режойн через: 10:00 | Всего: 0"
+    InfoLabel.TextColor3 = Color3.fromRGB(150, 150, 200)
+    InfoLabel.Font = Enum.Font.SourceSans
+    InfoLabel.TextSize = 12
+    InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+    InfoLabel.Parent = MainFrame
+
+    -- Статус персонажа
+    local CharStatusLabel = Instance.new("TextLabel")
+    CharStatusLabel.Position = UDim2.new(0, 10, 0, 85)
+    CharStatusLabel.Size = UDim2.new(1, -20, 0, 16)
+    CharStatusLabel.BackgroundTransparency = 1
+    CharStatusLabel.Text = "✅ Персонаж жив"
+    CharStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    CharStatusLabel.Font = Enum.Font.SourceSans
+    CharStatusLabel.TextSize = 12
+    CharStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    CharStatusLabel.Parent = MainFrame
+
+    -- Кнопки
+    local StartButton = Instance.new("TextButton")
+    StartButton.Position = UDim2.new(0, 10, 0, 108)
+    StartButton.Size = UDim2.new(0, 80, 0, 28)
+    StartButton.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+    StartButton.BorderSizePixel = 0
+    StartButton.Text = "▶ СТАРТ"
+    StartButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StartButton.Font = Enum.Font.SourceSansBold
+    StartButton.TextSize = 13
+    StartButton.Parent = MainFrame
+
+    local StopButton = Instance.new("TextButton")
+    StopButton.Position = UDim2.new(0, 95, 0, 108)
+    StopButton.Size = UDim2.new(0, 80, 0, 28)
+    StopButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+    StopButton.BorderSizePixel = 0
+    StopButton.Text = "⏹ СТОП"
+    StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StopButton.Font = Enum.Font.SourceSansBold
+    StopButton.TextSize = 13
+    StopButton.Parent = MainFrame
+
+    local RejoinNowButton = Instance.new("TextButton")
+    RejoinNowButton.Position = UDim2.new(0, 180, 0, 108)
+    RejoinNowButton.Size = UDim2.new(0, 160, 0, 28)
+    RejoinNowButton.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
+    RejoinNowButton.BorderSizePixel = 0
+    RejoinNowButton.Text = "⏩ РЕДЖОЙН СЕЙЧАС"
+    RejoinNowButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RejoinNowButton.Font = Enum.Font.SourceSansBold
+    RejoinNowButton.TextSize = 13
+    RejoinNowButton.Parent = MainFrame
+
+    local SelectAllBtn = Instance.new("TextButton")
+    SelectAllBtn.Position = UDim2.new(0, 10, 0, 142)
+    SelectAllBtn.Size = UDim2.new(0, 100, 0, 25)
+    SelectAllBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
+    SelectAllBtn.BorderSizePixel = 0
+    SelectAllBtn.Text = "✓ ВСЕХ"
+    SelectAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SelectAllBtn.Font = Enum.Font.SourceSans
+    SelectAllBtn.TextSize = 12
+    SelectAllBtn.Parent = MainFrame
+
+    local DeselectAllBtn = Instance.new("TextButton")
+    DeselectAllBtn.Position = UDim2.new(0, 115, 0, 142)
+    DeselectAllBtn.Size = UDim2.new(0, 100, 0, 25)
+    DeselectAllBtn.BackgroundColor3 = Color3.fromRGB(80, 50, 50)
+    DeselectAllBtn.BorderSizePixel = 0
+    DeselectAllBtn.Text = "✕ ОТМЕНИТЬ"
+    DeselectAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DeselectAllBtn.Font = Enum.Font.SourceSans
+    DeselectAllBtn.TextSize = 12
+    DeselectAllBtn.Parent = MainFrame
+
+    local AutoRejoinBtn = Instance.new("TextButton")
+    AutoRejoinBtn.Position = UDim2.new(0, 220, 0, 142)
+    AutoRejoinBtn.Size = UDim2.new(0, 120, 0, 25)
+    AutoRejoinBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+    AutoRejoinBtn.BorderSizePixel = 0
+    AutoRejoinBtn.Text = "🔄 АВТО: ВКЛ"
+    AutoRejoinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AutoRejoinBtn.Font = Enum.Font.SourceSans
+    AutoRejoinBtn.TextSize = 12
+    AutoRejoinBtn.Parent = MainFrame
+
+    -- Список игроков
+    local ListTitle = Instance.new("TextLabel")
+    ListTitle.Position = UDim2.new(0, 10, 0, 175)
+    ListTitle.Size = UDim2.new(1, -20, 0, 20)
+    ListTitle.BackgroundTransparency = 1
+    ListTitle.Text = "📋 АКТИВНЫЕ ИГРОКИ (0)"
+    ListTitle.TextColor3 = Color3.fromRGB(200, 200, 255)
+    ListTitle.Font = Enum.Font.SourceSansBold
+    ListTitle.TextSize = 14
+    ListTitle.TextXAlignment = Enum.TextXAlignment.Left
+    ListTitle.Parent = MainFrame
+
+    local ListFrame = Instance.new("Frame")
+    ListFrame.Position = UDim2.new(0, 10, 0, 198)
+    ListFrame.Size = UDim2.new(1, -20, 0, 250)
+    ListFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    ListFrame.BorderSizePixel = 1
+    ListFrame.BorderColor3 = Color3.fromRGB(60, 60, 80)
+    ListFrame.Parent = MainFrame
+
+    local PlayerScrollFrame = Instance.new("ScrollingFrame")
+    PlayerScrollFrame.Position = UDim2.new(0, 5, 0, 5)
+    PlayerScrollFrame.Size = UDim2.new(1, -10, 1, -10)
+    PlayerScrollFrame.BackgroundTransparency = 1
+    PlayerScrollFrame.BorderSizePixel = 0
+    PlayerScrollFrame.ScrollBarThickness = 6
+    PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    PlayerScrollFrame.Parent = ListFrame
+
+    local PlayerListItems = {}
+    local CurrentPlayerCount = 0
+
+    -- ========== ФУНКЦИИ GUI ==========
+
+    local function UpdateStatus()
+        local count = 0
         for _ in pairs(SelectedTargets) do count = count + 1 end
-        if count == 0 then
-            print("[Скрипт] Всё равно нет целей!")
-            return
+        if FlingActive then
+            StatusLabel.Text = "⚔️ Убиваю " .. count .. " игроков..."
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+        else
+            StatusLabel.Text = "⏸ Остановлен" .. (count > 0 and " (выбрано " .. count .. " целей)" or "")
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
+        end
+        SaveState()
+    end
+
+    local function UpdateRejoinInfo(timeLeft)
+        local mins = math.floor(timeLeft / 60)
+        local secs = math.floor(timeLeft % 60)
+        InfoLabel.Text = string.format("Режойн через: %02d:%02d | Всего режойнов: %d", mins, secs, RejoinCount)
+    end
+
+    local function UpdateCharStatus(alive)
+        if alive then
+            CharStatusLabel.Text = "✅ Персонаж жив"
+            CharStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+        else
+            CharStatusLabel.Text = "💀 Ожидание перерождения..."
+            CharStatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
         end
     end
-    
-    FlingActive = true
-    getgenv().FlingData.Active = true
-    SaveState()
-    print("[Скрипт] Флинг запущен! Целей: " .. count)
-    
-    spawn(function()
-        while FlingActive do
-            local Character = Player.Character
-            local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-            
-            if not Character or not Humanoid or Humanoid.Health <= 0 then
-                wait(2)
-                continue
-            end
-            
-            local validTargets = {}
-            for name, player in pairs(SelectedTargets) do
-                if player and player.Parent and player.Character then
-                    local targetHumanoid = player.Character:FindFirstChildOfClass("Humanoid")
-                    if targetHumanoid and targetHumanoid.Health > 0 then
-                        validTargets[name] = player
-                    end
+
+    local function UpdatePlayerList()
+        for _, item in pairs(PlayerListItems) do
+            item:Destroy()
+        end
+        PlayerListItems = {}
+
+        local playerList = Players:GetPlayers()
+        table.sort(playerList, function(a, b) return a.Name:lower() < b.Name:lower() end)
+
+        local yPos = 5
+        local count = 0
+
+        for _, plr in ipairs(playerList) do
+            local isSelf = (plr == Player)
+            local isSelected = SelectedTargets[plr.Name] ~= nil
+            local isAlive = false
+
+            if plr.Character then
+                local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    isAlive = true
                 end
             end
-            
-            for _, player in pairs(validTargets) do
-                if not FlingActive then break end
-                SkidFling(player)
-                wait(0.1)
+
+            local Item = Instance.new("Frame")
+            Item.Size = UDim2.new(1, -10, 0, 24)
+            Item.Position = UDim2.new(0, 5, 0, yPos)
+            Item.BackgroundColor3 = isSelf and Color3.fromRGB(0, 60, 80) or (isSelected and Color3.fromRGB(60, 40, 60) or Color3.fromRGB(40, 40, 50))
+            Item.BorderSizePixel = 0
+            Item.Parent = PlayerScrollFrame
+
+            local StatusIcon = Instance.new("TextLabel")
+            StatusIcon.Size = UDim2.new(0, 20, 1, 0)
+            StatusIcon.Position = UDim2.new(0, 2, 0, 0)
+            StatusIcon.BackgroundTransparency = 1
+            StatusIcon.Text = isAlive and "🟢" or "🔴"
+            StatusIcon.TextSize = 14
+            StatusIcon.Font = Enum.Font.SourceSans
+            StatusIcon.Parent = Item
+
+            local NameLabel = Instance.new("TextLabel")
+            NameLabel.Size = UDim2.new(1, -70, 1, 0)
+            NameLabel.Position = UDim2.new(0, 24, 0, 0)
+            NameLabel.BackgroundTransparency = 1
+            NameLabel.Text = plr.Name .. (isSelf and " (ВЫ)" or "")
+            NameLabel.TextColor3 = isSelf and Color3.fromRGB(100, 200, 255) or (isSelected and Color3.fromRGB(255, 200, 100) or Color3.fromRGB(200, 200, 200))
+            NameLabel.TextSize = 13
+            NameLabel.Font = Enum.Font.SourceSans
+            NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            NameLabel.Parent = Item
+
+            local CheckIcon = Instance.new("TextLabel")
+            CheckIcon.Size = UDim2.new(0, 30, 1, 0)
+            CheckIcon.Position = UDim2.new(1, -32, 0, 0)
+            CheckIcon.BackgroundTransparency = 1
+            CheckIcon.Text = isSelected and "✅" or (isSelf and "⭐" or "⬜")
+            CheckIcon.TextSize = 14
+            CheckIcon.Font = Enum.Font.SourceSans
+            CheckIcon.Parent = Item
+
+            if not isSelf then
+                local ClickArea = Instance.new("TextButton")
+                ClickArea.Size = UDim2.new(1, 0, 1, 0)
+                ClickArea.BackgroundTransparency = 1
+                ClickArea.Text = ""
+                ClickArea.ZIndex = 2
+                ClickArea.Parent = Item
+
+                ClickArea.MouseButton1Click:Connect(function()
+                    if SelectedTargets[plr.Name] then
+                        SelectedTargets[plr.Name] = nil
+                    else
+                        if plr.Character then
+                            local h = plr.Character:FindFirstChildOfClass("Humanoid")
+                            if h and h.Health > 0 then
+                                SelectedTargets[plr.Name] = plr
+                            else
+                                Message("Ошибка", plr.Name .. " мёртв!", 2)
+                            end
+                        else
+                            SelectedTargets[plr.Name] = plr
+                        end
+                    end
+                    UpdateStatus()
+                    UpdatePlayerList()
+                    SaveState()
+                end)
             end
-            
-            wait(0.5)
-        end
-    end)
-end
 
-function StopFling()
-    FlingActive = false
-    getgenv().FlingData.Active = false
-    SaveState()
-    print("[Скрипт] Флинг остановлен")
-end
-
--- ============================================
--- 📋 ВЫБОР ИГРОКОВ
--- ============================================
-function SelectAllPlayers()
-    SelectedTargets = {}
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= Player then
-            SelectedTargets[plr.Name] = plr
+            table.insert(PlayerListItems, Item)
+            yPos = yPos + 28
+            count = count + 1
         end
+
+        CurrentPlayerCount = count
+        ListTitle.Text = "📋 АКТИВНЫЕ ИГРОКИ (" .. count .. ")"
+        PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 10)
     end
-    SaveState()
-    print("[Скрипт] Выбрано игроков: " .. #Players:GetPlayers() - 1)
-end
 
--- ============================================
--- ⏱️ ТАЙМЕР
--- ============================================
-local function StartTimer()
-    if RejoinTimer then RejoinTimer:Disconnect() end
-    
-    local timeLeft = 600
-    print("[Скрипт] Таймер запущен! Переход через 10 минут")
-    
-    RejoinTimer = RunService.Heartbeat:Connect(function(dt)
-        timeLeft = timeLeft - dt
-        if timeLeft <= 0 then
-            JoinOtherServer()
-            RejoinTimer:Disconnect()
-        end
-    end)
-end
+    -- ========== ОСТАЛЬНЫЕ ФУНКЦИИ ==========
 
--- ============================================
--- 💬 СООБЩЕНИЯ
--- ============================================
-local function Message(Title, Text, Time)
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = Title,
-            Text = Text,
-            Duration = Time or 3
-        })
-    end)
-end
-
--- ============================================
--- 🔄 ПЕРЕЗАПУСК ПОСЛЕ ПЕРЕХОДА
--- ============================================
-local function SetupAutoRejoin()
-    -- Способ 1: queue_on_teleport (для Krnl, Synapse, Fluxus)
-    local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or (Krnl and Krnl.queue_on_teleport)
-    
-    if queueteleport then
-        game.Players.LocalPlayer.OnTeleport:Connect(function()
-            print("[Скрипт] Обнаружен переход, ставлю в очередь...")
-            getgenv().FlingData.ScriptRunning = false
-            queueteleport([[
-                loadstring(game:HttpGet('https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua'))()
-            ]])
+    local function Message(Title, Text, Time)
+        pcall(function()
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = Title,
+                Text = Text,
+                Duration = Time or 3
+            })
         end)
-        print("[✅] queue_on_teleport подключён!")
+    end
+
+    -- ========== МЕХАНИКА ФЛИНГА ==========
+
+    local function SkidFling(TargetPlayer)
+        local Character = Player.Character
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+        local RootPart = Humanoid and Humanoid.RootPart
+
+        if not Character or not Humanoid or not RootPart then
+            return false
+        end
+
+        if Humanoid.Health <= 0 then
+            return false
+        end
+
+        local TCharacter = TargetPlayer.Character
+        if not TCharacter then return false end
+
+        local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
+        local TRootPart = THumanoid and THumanoid.RootPart
+        local THead = TCharacter:FindFirstChild("Head")
+        local Accessory = TCharacter:FindFirstChildOfClass("Accessory")
+        local Handle = Accessory and Accessory:FindFirstChild("Handle")
+
+        if THumanoid and THumanoid.Sit then return false end
+        if not TCharacter:FindFirstChildWhichIsA("BasePart") then return false end
+
+        local function FPos(BasePart, Pos, Ang)
+            RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+            Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+            RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+            RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+        end
+
+        local function SFBasePart(BasePart)
+            local TimeToWait = 2
+            local Time = tick()
+            local Angle = 0
+            repeat
+                if RootPart and THumanoid then
+                    if BasePart.Velocity.Magnitude < 50 then
+                        Angle = Angle + 100
+                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                    else
+                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+                        task.wait()
+                    end
+                end
+            until Time + TimeToWait < tick() or not FlingActive
+        end
+
+        workspace.FallenPartsDestroyHeight = 0/0
+
+        local BV = Instance.new("BodyVelocity")
+        BV.Parent = RootPart
+        BV.Velocity = Vector3.new(0, 0, 0)
+        BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+
+        if TRootPart then
+            SFBasePart(TRootPart)
+        elseif THead then
+            SFBasePart(THead)
+        elseif Handle then
+            SFBasePart(Handle)
+        else
+            BV:Destroy()
+            Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+            return false
+        end
+
+        BV:Destroy()
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+        workspace.CurrentCamera.CameraSubject = Humanoid
+
+        if getgenv().OldPos then
+            repeat
+                RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
+                Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
+                Humanoid:ChangeState("GettingUp")
+                for _, part in pairs(Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.Velocity, part.RotVelocity = Vector3.new(), Vector3.new()
+                    end
+                end
+                task.wait()
+            until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25 or not FlingActive
+            workspace.FallenPartsDestroyHeight = getgenv().FPDH
+        end
+
         return true
     end
-    
-    -- Способ 2: для Xeno через Auto-Execute (пользователь должен настроить сам)
-    print("[⚠️] queue_on_teleport НЕ поддерживается!")
-    print("[💡] Для Xeno: добавь эту ссылку в Auto-Execute:")
-    print("https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua")
-    
-    return false
-end
 
--- ============================================
--- 🚀 АВТОЗАПУСК
--- ============================================
-local function AutoStart()
-    print("[Скрипт] Инициализация...")
-    
-    -- Ждём персонажа
-    local char = Player.Character
-    if not char then
-        char = Player.CharacterAdded:Wait()
+    -- ========== УПРАВЛЕНИЕ ФЛИНГОМ ==========
+
+    local function StartFling()
+        if FlingActive then return end
+
+        local count = 0
+        for _ in pairs(SelectedTargets) do count = count + 1 end
+        if count == 0 then
+            Message("Ошибка", "Нет выбранных целей! Нажми 'ВСЕХ'", 2)
+            return
+        end
+
+        FlingActive = true
+        SaveState()
+        UpdateStatus()
+        Message("Старт", "Флингуется " .. count .. " целей", 2)
+
+        spawn(function()
+            while FlingActive do
+                local Character = Player.Character
+                local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+
+                if not Character or not Humanoid or Humanoid.Health <= 0 then
+                    UpdateCharStatus(false)
+                    wait(2)
+                    continue
+                else
+                    UpdateCharStatus(true)
+                end
+
+                local validTargets = {}
+                for name, player in pairs(SelectedTargets) do
+                    if player and player.Parent and player.Character then
+                        local targetHumanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                        if targetHumanoid and targetHumanoid.Health > 0 then
+                            validTargets[name] = player
+                        end
+                    else
+                        SelectedTargets[name] = nil
+                    end
+                end
+
+                for _, player in pairs(validTargets) do
+                    if not FlingActive then break end
+                    if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+                        local h = Player.Character:FindFirstChildOfClass("Humanoid")
+                        if h.Health > 0 then
+                            SkidFling(player)
+                        end
+                    end
+                    wait(0.1)
+                end
+
+                UpdateStatus()
+                UpdatePlayerList()
+                SaveState()
+                wait(0.5)
+            end
+        end)
     end
-    char:WaitForChild("Humanoid")
-    
-    wait(2)
-    
-    -- Создаём GUI
-    CreateGUI()
-    
-    -- Выбираем всех игроков
-    SelectAllPlayers()
-    
-    -- Если флинг был активен до перехода — запускаем
-    if getgenv().FlingData.Active then
-        wait(1)
-        StartFling()
+
+    local function StopFling()
+        if not FlingActive then return end
+        FlingActive = false
+        SaveState()
+        UpdateStatus()
+        Message("Стоп", "Флинг остановлен", 2)
     end
-    
-    -- Запускаем таймер
-    StartTimer()
-    
-    -- Уведомление
-    Message("🔥 АВТО-ФЛИНГ", "Скрипт активен! Убиваю всех!", 5)
-    
-    print("[✅] Скрипт успешно запущен!")
-end
 
--- ============================================
--- ✅ ЗАПУСК
--- ============================================
+    -- ========== ВЫБОР ИГРОКОВ ==========
 
--- Настраиваем авто-перезапуск
-SetupAutoRejoin()
+    local function SelectAllPlayers()
+        SelectedTargets = {}
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= Player then
+                if player.Character then
+                    local h = player.Character:FindFirstChildOfClass("Humanoid")
+                    if h and h.Health > 0 then
+                        SelectedTargets[player.Name] = player
+                    else
+                        SelectedTargets[player.Name] = player
+                    end
+                else
+                    SelectedTargets[player.Name] = player
+                end
+            end
+        end
+        SaveState()
+        UpdateStatus()
+        UpdatePlayerList()
+        Message("Цели выбраны", "Выбрано " .. #Players:GetPlayers() - 1 .. " игроков", 2)
+    end
 
--- Запускаем основной скрипт
-AutoStart()
+    local function DeselectAllPlayers()
+        SelectedTargets = {}
+        SaveState()
+        UpdateStatus()
+        UpdatePlayerList()
+        Message("Отменено", "Все цели отменены", 2)
+    end
+
+    -- ========== РЕДЖОЙН ==========
+
+    local function PerformRejoin(instant)
+        if instant then
+            if FlingActive then StopFling() end
+            RejoinCount = RejoinCount + 1
+            SaveState()
+            Message("⚡ РЕДЖОЙН", "Мгновенный перезаход #" .. RejoinCount, 2)
+            TeleportService:Teleport(game.PlaceId, Player)
+        else
+            if FlingActive then StopFling() end
+            RejoinCount = RejoinCount + 1
+            SaveState()
+            Message("Режойн", "Перезаход #" .. RejoinCount .. " на новый сервер...", 3)
+            wait(3)
+            TeleportService:Teleport(game.PlaceId, Player)
+        end
+    end
+
+    -- ========== ВОССТАНОВЛЕНИЕ ==========
+
+    local function RestoreAfterRespawn()
+        UpdateCharStatus(true)
+        Message("Восстановление", "Персонаж переродился!", 2)
+        wait(2)
+
+        local count = 0
+        for _ in pairs(SelectedTargets) do count = count + 1 end
+        if count == 0 then
+            SelectAllPlayers()
+        end
+
+        if not FlingActive then
+            wait(1)
+            StartFling()
+        end
+
+        UpdatePlayerList()
+        Message("✅ Восстановлено", "Флинг продолжается!", 2)
+    end
+
+    -- ========== ТАЙМЕР ==========
+
+    local function StartRejoinTimer()
+        if RejoinTimer then
+            RejoinTimer:Disconnect()
+            RejoinTimer = nil
+        end
+
+        local timeLeft = 600
+
+        RejoinTimer = RunService.Heartbeat:Connect(function(dt)
+            if AutoRejoinActive then
+                timeLeft = timeLeft - dt
+                if timeLeft <= 0 then
+                    PerformRejoin(false)
+                    RejoinTimer:Disconnect()
+                    return
+                end
+                if math.floor(timeLeft) % 5 == 0 then
+                    UpdateRejoinInfo(timeLeft)
+                end
+            end
+        end)
+    end
+
+    -- ========== ОБРАБОТЧИКИ ==========
+
+    StartButton.MouseButton1Click:Connect(StartFling)
+    StopButton.MouseButton1Click:Connect(StopFling)
+    RejoinNowButton.MouseButton1Click:Connect(function() PerformRejoin(true) end)
+    SelectAllBtn.MouseButton1Click:Connect(SelectAllPlayers)
+    DeselectAllBtn.MouseButton1Click:Connect(DeselectAllPlayers)
+
+    AutoRejoinBtn.MouseButton1Click:Connect(function()
+        AutoRejoinActive = not AutoRejoinActive
+        getgenv().FlingData.AutoRejoin = AutoRejoinActive
+        AutoRejoinBtn.Text = AutoRejoinActive and "🔄 АВТО: ВКЛ" or "🔄 АВТО: ВЫКЛ"
+        AutoRejoinBtn.BackgroundColor3 = AutoRejoinActive and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(100, 0, 0)
+        if AutoRejoinActive then
+            StartRejoinTimer()
+            Message("Авторежойн", "Включён (каждые 10 минут)", 2)
+        else
+            if RejoinTimer then
+                RejoinTimer:Disconnect()
+                RejoinTimer = nil
+            end
+            Message("Авторежойн", "Выключен", 2)
+        end
+        SaveState()
+    end)
+
+    CloseButton.MouseButton1Click:Connect(function()
+        StopFling()
