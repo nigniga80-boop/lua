@@ -66,7 +66,6 @@ local function JoinOtherServer()
     end
     SaveState()
 
-    -- Пытаемся найти другой сервер
     local servers = {}
     local success, result = pcall(function()
         return HttpService:GetAsync("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?limit=10")
@@ -693,9 +692,7 @@ local function CreateGUI()
 end
 
 -- ========== СОХРАНЕНИЕ СКРИПТА ДЛЯ ПЕРЕЗАПУСКА ==========
--- Сохраняем ВЕСЬ код в глобальную переменную
 getgenv().FlingScriptCode = [[
--- Полный код скрипта (этот же файл)
 loadstring(game:HttpGet('https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua'))()
 ]]
 
@@ -705,9 +702,7 @@ local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (f
 if queueteleport then
     game.Players.LocalPlayer.OnTeleport:Connect(function()
         print("[Скрипт] Обнаружен переход, ставлю в очередь...")
-        -- Сбрасываем флаг запуска
         getgenv().FlingRunning = false
-        -- Ставим в очередь на выполнение после перехода
         queueteleport([[
             loadstring(game:HttpGet('https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua'))()
         ]])
