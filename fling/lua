@@ -1,20 +1,16 @@
---[[
-    🔥 АВТО-ФЛИНГ (ПОЛНАЯ ВЕРСИЯ)
-    - Автоматически выбирает всех игроков
-    - Автоматически запускает флинг
-    - Переход на другой сервер каждые 10 минут
-    - Восстанавливается после смерти
-    - Сохраняется после перехода
-]]
+-- ============================================
+-- 🔥 АВТО-ФЛИНГ (РАБОЧАЯ ВЕРСИЯ)
+-- ============================================
 
--- ========== СЛУЖБЫ ==========
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local Player = Players.LocalPlayer
 
--- ========== ДАННЫЕ ==========
+-- ============================================
+-- 📦 ДАННЫЕ (сохраняются после перехода)
+-- ============================================
 if not getgenv().FlingData then
     getgenv().FlingData = {
         Active = false,
@@ -34,7 +30,7 @@ local GuiCreated = false
 getgenv().OldPos = nil
 getgenv().FPDH = workspace.FallenPartsDestroyHeight
 
--- Восстанавливаем цели
+-- Восстанавливаем цели после перехода
 for _, name in ipairs(getgenv().FlingData.Targets or {}) do
     local plr = Players:FindFirstChild(name)
     if plr and plr ~= Player then
@@ -42,7 +38,9 @@ for _, name in ipairs(getgenv().FlingData.Targets or {}) do
     end
 end
 
--- ========== СОХРАНЕНИЕ ==========
+-- ============================================
+-- 💾 СОХРАНЕНИЕ
+-- ============================================
 local function SaveState()
     local targetNames = {}
     for name in pairs(SelectedTargets) do
@@ -54,16 +52,15 @@ local function SaveState()
     getgenv().FlingData.AutoRejoin = AutoRejoinActive
 end
 
--- ========== ПЕРЕХОД НА ДРУГОЙ СЕРВЕР ==========
+-- ============================================
+-- 🌐 ПЕРЕХОД НА ДРУГОЙ СЕРВЕР
+-- ============================================
 local function JoinOtherServer()
     if getgenv().IsJoining then return end
     getgenv().IsJoining = true
 
     print("[Скрипт] Переход на другой сервер...")
-
-    if FlingActive then
-        FlingActive = false
-    end
+    FlingActive = false
     SaveState()
 
     local servers = {}
@@ -84,10 +81,8 @@ local function JoinOtherServer()
 
     if #servers > 0 then
         local serverId = servers[math.random(1, #servers)]
-        print("[Скрипт] Найден сервер: " .. serverId)
         TeleportService:TeleportToPlaceInstance(game.PlaceId, serverId, Player)
     else
-        print("[Скрипт] Серверов не найдено, перезаход...")
         TeleportService:Teleport(game.PlaceId, Player)
     end
 
@@ -95,7 +90,9 @@ local function JoinOtherServer()
     getgenv().IsJoining = false
 end
 
--- ========== GUI ==========
+-- ============================================
+-- 🖥️ GUI
+-- ============================================
 local function CreateGUI()
     if GuiCreated then return end
 
@@ -272,7 +269,9 @@ local function CreateGUI()
 
     local PlayerListItems = {}
 
-    -- ========== ОБНОВЛЕНИЕ GUI ==========
+    -- ============================================
+    -- 🔄 ОБНОВЛЕНИЕ GUI
+    -- ============================================
     local function UpdateStatus()
         local count = 0
         for _ in pairs(SelectedTargets) do count = count + 1 end
@@ -372,7 +371,9 @@ local function CreateGUI()
         PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 10)
     end
 
-    -- ========== СООБЩЕНИЯ ==========
+    -- ============================================
+    -- 💬 СООБЩЕНИЯ
+    -- ============================================
     local function Message(Title, Text, Time)
         pcall(function()
             game:GetService("StarterGui"):SetCore("SendNotification", {
@@ -383,7 +384,9 @@ local function CreateGUI()
         end)
     end
 
-    -- ========== ФЛИНГ ==========
+    -- ============================================
+    -- 🌀 ФЛИНГ
+    -- ============================================
     local function SkidFling(TargetPlayer)
         local Character = Player.Character
         local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
@@ -482,7 +485,9 @@ local function CreateGUI()
         return true
     end
 
-    -- ========== УПРАВЛЕНИЕ ==========
+    -- ============================================
+    -- 🎮 УПРАВЛЕНИЕ
+    -- ============================================
     function StartFling()
         if FlingActive then return end
 
@@ -550,7 +555,9 @@ local function CreateGUI()
         Message("Стоп", "Флинг остановлен", 2)
     end
 
-    -- ========== ВЫБОР ==========
+    -- ============================================
+    -- 📋 ВЫБОР ИГРОКОВ
+    -- ============================================
     function SelectAllPlayers()
         SelectedTargets = {}
         for _, player in ipairs(Players:GetPlayers()) do
@@ -572,7 +579,9 @@ local function CreateGUI()
         Message("Отменено", "Все цели отменены", 2)
     end
 
-    -- ========== ТАЙМЕР ==========
+    -- ============================================
+    -- ⏱️ ТАЙМЕР ПЕРЕХОДА
+    -- ============================================
     function StartRejoinTimer()
         if RejoinTimer then
             RejoinTimer:Disconnect()
@@ -596,7 +605,9 @@ local function CreateGUI()
         end)
     end
 
-    -- ========== КНОПКИ ==========
+    -- ============================================
+    -- 🔗 ПОДКЛЮЧЕНИЕ КНОПОК
+    -- ============================================
     StartButton.MouseButton1Click:Connect(StartFling)
     StopButton.MouseButton1Click:Connect(StopFling)
     RejoinNowButton.MouseButton1Click:Connect(JoinOtherServer)
@@ -628,7 +639,9 @@ local function CreateGUI()
         GuiCreated = false
     end)
 
-    -- ========== ОБРАБОТЧИКИ ==========
+    -- ============================================
+    -- 👤 ОБРАБОТЧИКИ СОБЫТИЙ
+    -- ============================================
     Player.CharacterAdded:Connect(function(character)
         print("[Скрипт] Персонаж переродился!")
         local humanoid = character:WaitForChild("Humanoid")
@@ -661,7 +674,9 @@ local function CreateGUI()
         UpdateStatus()
     end)
 
-    -- ========== АВТОЗАПУСК ==========
+    -- ============================================
+    -- 🚀 АВТОЗАПУСК
+    -- ============================================
     spawn(function()
         wait(3)
 
@@ -691,12 +706,16 @@ local function CreateGUI()
     print("🔥 АВТО-ФЛИНГ ЗАГРУЖЕН!")
 end
 
--- ========== СОХРАНЕНИЕ СКРИПТА ДЛЯ ПЕРЕЗАПУСКА ==========
+-- ============================================
+-- 💾 СОХРАНЕНИЕ ДЛЯ ПЕРЕЗАПУСКА
+-- ============================================
 getgenv().FlingScriptCode = [[
 loadstring(game:HttpGet('https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua'))()
 ]]
 
--- ========== ПЕРЕЗАПУСК ПОСЛЕ ПЕРЕХОДА ==========
+-- ============================================
+-- 🔄 ПЕРЕЗАПУСК ПОСЛЕ ПЕРЕХОДА
+-- ============================================
 local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or (Krnl and Krnl.queue_on_teleport)
 
 if queueteleport then
@@ -710,5 +729,7 @@ if queueteleport then
     print("[✅] Авто-перезапуск после перехода включён!")
 end
 
--- ========== ЗАПУСК ==========
+-- ============================================
+-- ✅ ЗАПУСК
+-- ============================================
 MainScript()
