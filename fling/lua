@@ -28,7 +28,7 @@ local PlayerListFrame = nil
 local ScriptLoaded = false -- Флаг загрузки скрипта
 
 -- URL вашего скрипта на GitHub (ЗАМЕНИТЕ НА СВОЙ!)
-local SCRIPT_URL = "https://raw.githubusercontent.com/ВАШ_АККАУНТ/ВАШ_РЕПОЗИТОРИЙ/main/autofling.lua"
+local SCRIPT_URL = "local SCRIPT_URL = "https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua"
 
 getgenv().OldPos = nil
 getgenv().FPDH = workspace.FallenPartsDestroyHeight
