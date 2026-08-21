@@ -20,7 +20,7 @@ local TeleportCheck = false
 local KeepInfYield = true
 
 -- URL твоего скрипта на GitHub (RAW)
-local ScriptURL = "https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling.lua"
+local ScriptURL = "https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua"
 
 Players.LocalPlayer.OnTeleport:Connect(function(State)
     if KeepInfYield and (not TeleportCheck) and queueteleport then
