@@ -15,17 +15,17 @@ local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local Player = Players.LocalPlayer
 
--- ========== ТЕЛЕПОРТ ХУК (ЗАГРУЗКА С GITHUB) ==========
+-- ========== ТЕЛЕПОРТ ХУК (С ЗАДЕРЖКОЙ) ==========
 local TeleportCheck = false
 local KeepInfYield = true
-
--- URL твоего скрипта на GitHub (RAW)
-local ScriptURL = "https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua"
 
 Players.LocalPlayer.OnTeleport:Connect(function(State)
     if KeepInfYield and (not TeleportCheck) and queueteleport then
         TeleportCheck = true
-        queueteleport("loadstring(game:HttpGet('" .. ScriptURL .. "'))()")
+        queueteleport([[
+            wait(2)
+            loadstring(game:HttpGet('https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua'))()
+        ]])
     end
 end)
 
