@@ -23,12 +23,9 @@ local SelectedTargets = {}
 local RejoinTimer = nil
 local RejoinCount = 0
 local AutoRejoinActive = true
-local IsRespawning = false
-local PlayerListFrame = nil
-local ScriptLoaded = false -- Флаг загрузки скрипта
 
--- URL вашего скрипта на GitHub (ЗАМЕНИТЕ НА СВОЙ!)
-local SCRIPT_URL = "local SCRIPT_URL = "https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua"
+-- ПРАВИЛЬНАЯ RAW-ССЫЛКА НА ВАШ СКРИПТ
+local SCRIPT_URL = "https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua"
 
 getgenv().OldPos = nil
 getgenv().FPDH = workspace.FallenPartsDestroyHeight
@@ -257,17 +254,7 @@ local function RestoreScriptLocally()
     PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     PlayerScrollFrame.Parent = ListFrame
 
-    -- Сохраняем ссылки для обновления
-    local GUIElements = {
-        ScreenGui = ScreenGui,
-        MainFrame = MainFrame,
-        StatusLabel = StatusLabel,
-        InfoLabel = InfoLabel,
-        CharStatusLabel = CharStatusLabel,
-        ListTitle = ListTitle,
-        PlayerScrollFrame = PlayerScrollFrame,
-        AutoRejoinBtn = AutoRejoinBtn
-    }
+    -- ========== ВНУТРЕННИЕ ФУНКЦИИ ==========
 
     -- Обновление статуса
     local function UpdateStatus()
@@ -378,8 +365,6 @@ local function RestoreScriptLocally()
                             local h = plr.Character:FindFirstChildOfClass("Humanoid")
                             if h and h.Health > 0 then
                                 SelectedTargets[plr.Name] = plr
-                            else
-                                -- Сообщение об ошибке
                             end
                         else
                             SelectedTargets[plr.Name] = plr
@@ -408,7 +393,7 @@ local function RestoreScriptLocally()
         })
     end
 
-    -- Функция флинга (сокращённая версия)
+    -- Функция флинга
     local function SkidFling(TargetPlayer)
         local Character = Player.Character
         local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
@@ -643,7 +628,7 @@ local function RestoreScriptLocally()
         end)
     end
 
-    -- Назначение обработчиков кнопок
+    -- ========== НАЗНАЧЕНИЕ ОБРАБОТЧИКОВ ==========
     StartButton.MouseButton1Click:Connect(StartFling)
     StopButton.MouseButton1Click:Connect(StopFling)
     
@@ -676,7 +661,7 @@ local function RestoreScriptLocally()
         ScreenGui:Destroy()
     end)
 
-    -- События игроков
+    -- ========== СОБЫТИЯ ИГРОКОВ ==========
     Players.PlayerAdded:Connect(function()
         wait(1)
         UpdatePlayerList()
@@ -692,13 +677,13 @@ local function RestoreScriptLocally()
         UpdateStatus()
     end)
 
-    -- Восстановление после смерти
+    -- ========== ВОССТАНОВЛЕНИЕ ПОСЛЕ СМЕРТИ ==========
     Player.CharacterAdded:Connect(function(character)
         print("[Скрипт] Персонаж переродился!")
         local humanoid = character:WaitForChild("Humanoid")
         UpdateCharStatus(true)
         wait(2)
-        -- Восстанавливаем после смерти
+        
         local count = 0
         for _ in pairs(SelectedTargets) do count = count + 1 end
         if count == 0 then
@@ -735,7 +720,7 @@ local function RestoreScriptLocally()
         end
     end
 
-    -- Автоматический запуск
+    -- ========== АВТОМАТИЧЕСКИЙ ЗАПУСК ==========
     spawn(function()
         wait(3)
         UpdatePlayerList()
@@ -770,6 +755,12 @@ end
 -- ========== ОСНОВНАЯ ФУНКЦИЯ ВОССТАНОВЛЕНИЯ ==========
 
 local function RestoreScript()
+    -- Проверяем, есть ли уже GUI. Если есть - скрипт уже работает, выходим.
+    if game:GetService("CoreGui"):FindFirstChild("AutoFlingGUI") then
+        print("[Восстановление] Скрипт уже активен. Выхожу.")
+        return true
+    end
+    
     -- Сначала пытаемся загрузить с GitHub
     local success = RestoreScriptFromGitHub()
     
@@ -778,6 +769,7 @@ local function RestoreScript()
         print("[Восстановление] GitHub недоступен, использую локальное восстановление...")
         RestoreScriptLocally()
     end
+    return success
 end
 
 -- ========== ОТСЛЕЖИВАНИЕ РЕДЖОЙНА ==========
@@ -786,43 +778,27 @@ end
 local originalTeleport = TeleportService.Teleport
 TeleportService.Teleport = function(placeId, player, ...)
     print("[Восстановление] Обнаружен реджойн! Восстанавливаю скрипт...")
-    -- Вызываем оригинальный телепорт
     originalTeleport(placeId, player, ...)
-    -- Запускаем восстановление после телепорта
     task.wait(5)
     RestoreScript()
 end
 
 -- Отслеживаем загрузку игрока
-local function OnPlayerLoaded()
-    task.wait(5)
-    RestoreScript()
-end
-
--- Если игрок уже загружен, проверяем
-if Player then
-    task.wait(5)
-    RestoreScript()
-end
-
--- Отслеживаем повторную загрузку игрока
 Players.PlayerAdded:Connect(function(player)
     if player == Player then
-        OnPlayerLoaded()
+        task.wait(5)
+        RestoreScript()
     end
 end)
 
--- ========== ЗАПУСК ОСНОВНОГО СКРИПТА ==========
+-- ========== ПЕРВИЧНЫЙ ЗАПУСК ==========
 
--- Проверяем, не запущен ли уже скрипт
+-- Этот блок выполняется только один раз, когда скрипт загружается впервые
 if not game:GetService("CoreGui"):FindFirstChild("AutoFlingGUI") then
-    -- Запускаем основную логику
-    spawn(function()
-        wait(3)
-        -- Здесь должен быть ваш основной код
-        -- (весь код из оригинального скрипта)
-        print("🔥 АВТО-ФЛИНГ АКТИВИРОВАН! ВСЕ ФУНКЦИИ ЗАГРУЖЕНЫ!")
-    end)
+    print("[Первичный запуск] Создаю GUI и запускаю флинг...")
+    RestoreScriptLocally()
+else
+    print("[Первичный запуск] Скрипт уже активен. Пропускаю создание GUI.")
 end
 
 print("🔥 АВТО-ФЛИНГ С ВОССТАНОВЛЕНИЕМ С GITHUB АКТИВИРОВАН!")
