@@ -1,12 +1,5 @@
 --[[
     🔥 АВТО-ФЛИНГ + АВТО-РЕЖОЙН + ВОССТАНОВЛЕНИЕ ПОСЛЕ СМЕРТИ
-    - Автоматически выбирает всех игроков
-    - Автоматически запускает флинг
-    - Режойн каждые 10 минут
-    - После реджойна всё повторяется
-    - ✅ ВОССТАНАВЛИВАЕТСЯ ПОСЛЕ СМЕРТИ ПЕРСОНАЖА
-    - ✅ РУЧНОЙ РЕДЖОЙН БЕЗ ОЖИДАНИЯ
-    - ✅ СПИСОК АКТИВНЫХ ИГРОКОВ
 ]]
 
 -- ========== СЛУЖБЫ ==========
@@ -15,17 +8,18 @@ local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local Player = Players.LocalPlayer
 
--- ========== ТЕЛЕПОРТ ХУК (С ЗАДЕРЖКОЙ) ==========
+-- ========== ТЕЛЕПОРТ ХУК (QUEUE_ON_TELEPORT) ==========
 local TeleportCheck = false
 local KeepInfYield = true
 
 Players.LocalPlayer.OnTeleport:Connect(function(State)
-    if KeepInfYield and (not TeleportCheck) and queueteleport then
+    if KeepInfYield and (not TeleportCheck) then
         TeleportCheck = true
-        queueteleport([[
-            wait(2)
-            loadstring(game:HttpGet('https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua'))()
-        ]])
+        if queue_on_teleport then
+            queue_on_teleport([[
+                loadstring(game:HttpGet('https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling/lua'))()
+            ]])
+        end
     end
 end)
 
