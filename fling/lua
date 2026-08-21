@@ -15,14 +15,17 @@ local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local Player = Players.LocalPlayer
 
--- ========== ТЕЛЕПОРТ ХУК ==========
+-- ========== ТЕЛЕПОРТ ХУК (ЗАГРУЗКА С GITHUB) ==========
 local TeleportCheck = false
-local KeepInfYield = true -- или false, если не нужно сохранять скрипт при телепорте
+local KeepInfYield = true
+
+-- URL твоего скрипта на GitHub (RAW)
+local ScriptURL = "https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling.lua"
 
 Players.LocalPlayer.OnTeleport:Connect(function(State)
     if KeepInfYield and (not TeleportCheck) and queueteleport then
         TeleportCheck = true
-        queueteleport("loadstring(game:HttpGet('https://github.com/nigniga80-boop/lua/blob/main/fling/lua'))()")
+        queueteleport("loadstring(game:HttpGet('" .. ScriptURL .. "'))()")
     end
 end)
 
@@ -33,7 +36,7 @@ local RejoinTimer = nil
 local RejoinCount = 0
 local AutoRejoinActive = true
 local IsRespawning = false
-local PlayerListFrame = nil  -- Для обновления списка
+local PlayerListFrame = nil
 
 getgenv().OldPos = nil
 getgenv().FPDH = workspace.FallenPartsDestroyHeight
@@ -44,7 +47,7 @@ ScreenGui.Name = "AutoFlingGUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = game:GetService("CoreGui")
 
--- Главное окно (увеличено)
+-- Главное окно
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 350, 0, 520)
 MainFrame.Position = UDim2.new(0.5, -175, 0.5, -260)
@@ -138,7 +141,7 @@ StopButton.Font = Enum.Font.SourceSansBold
 StopButton.TextSize = 13
 StopButton.Parent = MainFrame
 
--- Кнопка "РЕДЖОЙН СЕЙЧАС" (без ожидания!)
+-- Кнопка "РЕДЖОЙН СЕЙЧАС"
 local RejoinNowButton = Instance.new("TextButton")
 RejoinNowButton.Position = UDim2.new(0, 180, 0, 108)
 RejoinNowButton.Size = UDim2.new(0, 160, 0, 28)
@@ -188,7 +191,6 @@ AutoRejoinBtn.Parent = MainFrame
 
 -- ===== СПИСОК АКТИВНЫХ ИГРОКОВ =====
 
--- Заголовок списка
 local ListTitle = Instance.new("TextLabel")
 ListTitle.Position = UDim2.new(0, 10, 0, 175)
 ListTitle.Size = UDim2.new(1, -20, 0, 20)
@@ -209,7 +211,7 @@ ListFrame.BorderSizePixel = 1
 ListFrame.BorderColor3 = Color3.fromRGB(60, 60, 80)
 ListFrame.Parent = MainFrame
 
--- Скролл-контейнер для списка игроков
+-- Скролл-контейнер
 local PlayerScrollFrame = Instance.new("ScrollingFrame")
 PlayerScrollFrame.Position = UDim2.new(0, 5, 0, 5)
 PlayerScrollFrame.Size = UDim2.new(1, -10, 1, -10)
@@ -256,7 +258,6 @@ end
 -- ===== ОБНОВЛЕНИЕ СПИСКА ИГРОКОВ =====
 
 local function UpdatePlayerList()
-    -- Очищаем старый список
     for _, item in pairs(PlayerListItems) do
         item:Destroy()
     end
@@ -273,7 +274,6 @@ local function UpdatePlayerList()
         local isSelected = SelectedTargets[plr.Name] ~= nil
         local isAlive = false
         
-        -- Проверяем жив ли игрок
         if plr.Character then
             local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
             if humanoid and humanoid.Health > 0 then
@@ -281,7 +281,6 @@ local function UpdatePlayerList()
             end
         end
         
-        -- Создаём строку игрока
         local Item = Instance.new("Frame")
         Item.Size = UDim2.new(1, -10, 0, 24)
         Item.Position = UDim2.new(0, 5, 0, yPos)
@@ -289,7 +288,6 @@ local function UpdatePlayerList()
         Item.BorderSizePixel = 0
         Item.Parent = PlayerScrollFrame
         
-        -- Статус (жив/мёртв)
         local StatusIcon = Instance.new("TextLabel")
         StatusIcon.Size = UDim2.new(0, 20, 1, 0)
         StatusIcon.Position = UDim2.new(0, 2, 0, 0)
@@ -299,7 +297,6 @@ local function UpdatePlayerList()
         StatusIcon.Font = Enum.Font.SourceSans
         StatusIcon.Parent = Item
         
-        -- Имя игрока
         local NameLabel = Instance.new("TextLabel")
         NameLabel.Size = UDim2.new(1, -70, 1, 0)
         NameLabel.Position = UDim2.new(0, 24, 0, 0)
@@ -311,7 +308,6 @@ local function UpdatePlayerList()
         NameLabel.TextXAlignment = Enum.TextXAlignment.Left
         NameLabel.Parent = Item
         
-        -- Иконка выбора (галочка)
         local CheckIcon = Instance.new("TextLabel")
         CheckIcon.Size = UDim2.new(0, 30, 1, 0)
         CheckIcon.Position = UDim2.new(1, -32, 0, 0)
@@ -321,7 +317,6 @@ local function UpdatePlayerList()
         CheckIcon.Font = Enum.Font.SourceSans
         CheckIcon.Parent = Item
         
-        -- Кликабельная область для выбора цели
         if not isSelf then
             local ClickArea = Instance.new("TextButton")
             ClickArea.Size = UDim2.new(1, 0, 1, 0)
@@ -370,7 +365,7 @@ local function Message(Title, Text, Time)
     })
 end
 
--- ========== МЕХАНИКА ФЛИНГА (ОРИГИНАЛ) ==========
+-- ========== МЕХАНИКА ФЛИНГА ==========
 
 local function SkidFling(TargetPlayer)
     local Character = Player.Character
@@ -583,20 +578,15 @@ local function DeselectAllPlayers()
     Message("Отменено", "Все цели отменены", 2)
 end
 
--- ========== РЕДЖОЙН (МГНОВЕННЫЙ) ==========
+-- ========== РЕДЖОЙН ==========
 
 local function PerformRejoin(instant)
     if instant then
-        -- МГНОВЕННЫЙ реджойн без таймера
         if FlingActive then StopFling() end
-        
         RejoinCount = RejoinCount + 1
         Message("⚡ РЕДЖОЙН", "Мгновенный перезаход #" .. RejoinCount, 2)
-        
-        -- Телепортируемся сразу
         TeleportService:Teleport(game.PlaceId, Player)
     else
-        -- Обычный реджойн с таймером (10 минут)
         if FlingActive then StopFling() end
         RejoinCount = RejoinCount + 1
         Message("Режойн", "Перезаход #" .. RejoinCount .. " на новый сервер...", 3)
@@ -605,7 +595,7 @@ local function PerformRejoin(instant)
     end
 end
 
--- ========== ВОССТАНОВЛЕНИЕ ==========
+-- ========== ВОССТАНОВЛЕНИЕ ПОСЛЕ СМЕРТИ ==========
 
 local function RestoreAfterRespawn()
     UpdateCharStatus(true)
@@ -652,21 +642,18 @@ local function StartRejoinTimer()
     end)
 end
 
--- ========== ОБРАБОТЧИКИ ==========
+-- ========== ОБРАБОТЧИКИ СОБЫТИЙ ==========
 
--- Кнопки
 StartButton.MouseButton1Click:Connect(StartFling)
 StopButton.MouseButton1Click:Connect(StopFling)
 
--- Мгновенный реджойн (без ожидания!)
 RejoinNowButton.MouseButton1Click:Connect(function()
-    PerformRejoin(true)  -- true = мгновенный
+    PerformRejoin(true)
 end)
 
 SelectAllBtn.MouseButton1Click:Connect(SelectAllPlayers)
 DeselectAllBtn.MouseButton1Click:Connect(DeselectAllPlayers)
 
--- Авторежойн вкл/выкл
 AutoRejoinBtn.MouseButton1Click:Connect(function()
     AutoRejoinActive = not AutoRejoinActive
     AutoRejoinBtn.Text = AutoRejoinActive and "🔄 АВТО: ВКЛ" or "🔄 АВТО: ВЫКЛ"
@@ -683,14 +670,12 @@ AutoRejoinBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Закрытие
 CloseButton.MouseButton1Click:Connect(function()
     StopFling()
     if RejoinTimer then RejoinTimer:Disconnect() end
     ScreenGui:Destroy()
 end)
 
--- Обновление при изменении игроков
 Players.PlayerAdded:Connect(function()
     wait(1)
     UpdatePlayerList()
@@ -706,7 +691,6 @@ Players.PlayerRemoving:Connect(function(player)
     UpdateStatus()
 end)
 
--- Восстановление после смерти
 Player.CharacterAdded:Connect(function(character)
     print("[Скрипт] Персонаж переродился!")
     local humanoid = character:WaitForChild("Humanoid")
@@ -723,7 +707,6 @@ Player.CharacterAdded:Connect(function(character)
     end)
 end)
 
--- Если персонаж уже есть
 if Player.Character then
     local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
