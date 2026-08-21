@@ -1,58 +1,27 @@
 --[[
     🔥 АВТО-ФЛИНГ + АВТО-РЕЖОЙН + ВОССТАНОВЛЕНИЕ ПОСЛЕ СМЕРТИ
-    - Автоматически выбирает всех игроков
-    - Автоматически запускает флинг
-    - Режойн каждые 10 минут
-    - После реджойна всё повторяется
-    - ✅ ВОССТАНАВЛИВАЕТСЯ ПОСЛЕ СМЕРТИ ПЕРСОНАЖА
-    - ✅ РУЧНОЙ РЕДЖОЙН БЕЗ ОЖИДАНИЯ
-    - ✅ СПИСОК АКТИВНЫХ ИГРОКОВ
-    - ✅ СОХРАНЕНИЕ ПОСЛЕ ПЕРЕХОДА (через GitHub)
 ]]
 
--- ============================================
--- ССЫЛКА НА ТВОЙ СКРИПТ (ЗАМЕНИ ЕСЛИ НУЖНО)
--- ============================================
 local SCRIPT_URL = "https://raw.githubusercontent.com/nigniga80-boop/lua/main/fling.lua"
 
--- ============================================
--- ПРОВЕРКА QUEUE_ON_TELEPORT
--- ============================================
 local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or (Krnl and Krnl.queue_on_teleport)
 
-if queueteleport then
-    print("[✅] queue_on_teleport поддерживается!")
-else
-    print("[⚠️] queue_on_teleport НЕ поддерживается! Для Xeno используй Auto-Execute.")
-end
-
--- ============================================
--- ЗАЩИТА ОТ ПОВТОРНОГО ЗАПУСКА
--- ============================================
 if getgenv().FlingRunning then
-    print("[Скрипт] Уже запущен на этом сервере!")
+    print("[Скрипт] Уже запущен!")
     return
 end
 getgenv().FlingRunning = true
 
--- ============================================
--- ПЕРЕЗАПУСК ПОСЛЕ ПЕРЕХОДА (ЧЕРЕЗ GITHUB)
--- ============================================
 if queueteleport then
     game.Players.LocalPlayer.OnTeleport:Connect(function()
-        print("[Скрипт] Обнаружен переход на другой сервер!")
+        print("[Скрипт] Переход на другой сервер!")
         getgenv().FlingRunning = false
         queueteleport([[
             loadstring(game:HttpGet(']] .. SCRIPT_URL .. [['))()
         ]])
-        print("[✅] Скрипт будет перезапущен после загрузки нового сервера!")
     end)
-    print("[✅] Авто-перезапуск после перехода включён!")
 end
 
--- ============================================
--- ДАННЫЕ (СОХРАНЯЮТСЯ В getgenv)
--- ============================================
 if not getgenv().FlingData then
     getgenv().FlingData = {
         Active = false,
@@ -62,17 +31,11 @@ if not getgenv().FlingData then
     }
 end
 
--- ============================================
--- ОСНОВНОЙ СКРИПТ
--- ============================================
-
--- ========== СЛУЖБЫ ==========
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local Player = Players.LocalPlayer
 
--- ========== ПЕРЕМЕННЫЕ ==========
 local FlingActive = getgenv().FlingData.Active or false
 local SelectedTargets = {}
 local RejoinTimer = nil
@@ -80,10 +43,6 @@ local RejoinCount = getgenv().FlingData.RejoinCount or 0
 local AutoRejoinActive = getgenv().FlingData.AutoRejoin
 local GuiCreated = false
 
-getgenv().OldPos = nil
-getgenv().FPDH = workspace.FallenPartsDestroyHeight
-
--- Восстанавливаем цели после перехода
 for _, name in ipairs(getgenv().FlingData.Targets or {}) do
     local plr = Players:FindFirstChild(name)
     if plr and plr ~= Player then
@@ -91,7 +50,6 @@ for _, name in ipairs(getgenv().FlingData.Targets or {}) do
     end
 end
 
--- ========== СОХРАНЕНИЕ ==========
 local function SaveState()
     local targetNames = {}
     for name in pairs(SelectedTargets) do
@@ -103,10 +61,8 @@ local function SaveState()
     getgenv().FlingData.AutoRejoin = AutoRejoinActive
 end
 
--- ========== GUI ==========
 local function CreateGUI()
     if GuiCreated then return end
-
     local oldGui = game:GetService("CoreGui"):FindFirstChild("AutoFlingGUI")
     if oldGui then oldGui:Destroy() end
 
@@ -124,7 +80,6 @@ local function CreateGUI()
     MainFrame.Draggable = true
     MainFrame.Parent = ScreenGui
 
-    -- Заголовок
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(1, 0, 0, 35)
     Title.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
@@ -134,7 +89,6 @@ local function CreateGUI()
     Title.TextSize = 20
     Title.Parent = MainFrame
 
-    -- Кнопка закрытия
     local CloseButton = Instance.new("TextButton")
     CloseButton.Position = UDim2.new(1, -35, 0, 0)
     CloseButton.Size = UDim2.new(0, 35, 0, 35)
@@ -146,7 +100,6 @@ local function CreateGUI()
     CloseButton.TextSize = 20
     CloseButton.Parent = Title
 
-    -- Статус
     local StatusLabel = Instance.new("TextLabel")
     StatusLabel.Position = UDim2.new(0, 10, 0, 45)
     StatusLabel.Size = UDim2.new(1, -20, 0, 22)
@@ -158,7 +111,6 @@ local function CreateGUI()
     StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
     StatusLabel.Parent = MainFrame
 
-    -- Инфо о реджойне
     local InfoLabel = Instance.new("TextLabel")
     InfoLabel.Position = UDim2.new(0, 10, 0, 67)
     InfoLabel.Size = UDim2.new(1, -20, 0, 18)
@@ -170,7 +122,6 @@ local function CreateGUI()
     InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
     InfoLabel.Parent = MainFrame
 
-    -- Статус персонажа
     local CharStatusLabel = Instance.new("TextLabel")
     CharStatusLabel.Position = UDim2.new(0, 10, 0, 85)
     CharStatusLabel.Size = UDim2.new(1, -20, 0, 16)
@@ -182,7 +133,6 @@ local function CreateGUI()
     CharStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
     CharStatusLabel.Parent = MainFrame
 
-    -- Кнопки
     local StartButton = Instance.new("TextButton")
     StartButton.Position = UDim2.new(0, 10, 0, 108)
     StartButton.Size = UDim2.new(0, 80, 0, 28)
@@ -249,7 +199,6 @@ local function CreateGUI()
     AutoRejoinBtn.TextSize = 12
     AutoRejoinBtn.Parent = MainFrame
 
-    -- Список игроков
     local ListTitle = Instance.new("TextLabel")
     ListTitle.Position = UDim2.new(0, 10, 0, 175)
     ListTitle.Size = UDim2.new(1, -20, 0, 20)
@@ -279,9 +228,6 @@ local function CreateGUI()
     PlayerScrollFrame.Parent = ListFrame
 
     local PlayerListItems = {}
-    local CurrentPlayerCount = 0
-
-    -- ========== ФУНКЦИИ GUI ==========
 
     local function UpdateStatus()
         local count = 0
@@ -406,12 +352,9 @@ local function CreateGUI()
             count = count + 1
         end
 
-        CurrentPlayerCount = count
         ListTitle.Text = "📋 АКТИВНЫЕ ИГРОКИ (" .. count .. ")"
         PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 10)
     end
-
-    -- ========== ОСТАЛЬНЫЕ ФУНКЦИИ ==========
 
     local function Message(Title, Text, Time)
         pcall(function()
@@ -423,18 +366,12 @@ local function CreateGUI()
         end)
     end
 
-    -- ========== МЕХАНИКА ФЛИНГА ==========
-
     local function SkidFling(TargetPlayer)
         local Character = Player.Character
         local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
         local RootPart = Humanoid and Humanoid.RootPart
 
-        if not Character or not Humanoid or not RootPart then
-            return false
-        end
-
-        if Humanoid.Health <= 0 then
+        if not Character or not Humanoid or not RootPart or Humanoid.Health <= 0 then
             return false
         end
 
@@ -442,13 +379,10 @@ local function CreateGUI()
         if not TCharacter then return false end
 
         local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
-        local TRootPart = THumanoid and THumanoid.RootPart
-        local THead = TCharacter:FindFirstChild("Head")
-        local Accessory = TCharacter:FindFirstChildOfClass("Accessory")
-        local Handle = Accessory and Accessory:FindFirstChild("Handle")
+        if not THumanoid or THumanoid.Sit then return false end
 
-        if THumanoid and THumanoid.Sit then return false end
-        if not TCharacter:FindFirstChildWhichIsA("BasePart") then return false end
+        local TRootPart = THumanoid.RootPart
+        if not TRootPart then return false end
 
         local function FPos(BasePart, Pos, Ang)
             RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
@@ -540,9 +474,7 @@ local function CreateGUI()
         return true
     end
 
-    -- ========== УПРАВЛЕНИЕ ФЛИНГОМ ==========
-
-    local function StartFling()
+    function StartFling()
         if FlingActive then return end
 
         local count = 0
@@ -601,7 +533,7 @@ local function CreateGUI()
         end)
     end
 
-    local function StopFling()
+    function StopFling()
         if not FlingActive then return end
         FlingActive = false
         SaveState()
@@ -609,9 +541,7 @@ local function CreateGUI()
         Message("Стоп", "Флинг остановлен", 2)
     end
 
-    -- ========== ВЫБОР ИГРОКОВ ==========
-
-    local function SelectAllPlayers()
+    function SelectAllPlayers()
         SelectedTargets = {}
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= Player then
@@ -633,15 +563,13 @@ local function CreateGUI()
         Message("Цели выбраны", "Выбрано " .. #Players:GetPlayers() - 1 .. " игроков", 2)
     end
 
-    local function DeselectAllPlayers()
+    function DeselectAllPlayers()
         SelectedTargets = {}
         SaveState()
         UpdateStatus()
         UpdatePlayerList()
         Message("Отменено", "Все цели отменены", 2)
     end
-
-    -- ========== РЕДЖОЙН ==========
 
     local function PerformRejoin(instant)
         if instant then
@@ -659,8 +587,6 @@ local function CreateGUI()
             TeleportService:Teleport(game.PlaceId, Player)
         end
     end
-
-    -- ========== ВОССТАНОВЛЕНИЕ ==========
 
     local function RestoreAfterRespawn()
         UpdateCharStatus(true)
@@ -681,8 +607,6 @@ local function CreateGUI()
         UpdatePlayerList()
         Message("✅ Восстановлено", "Флинг продолжается!", 2)
     end
-
-    -- ========== ТАЙМЕР ==========
 
     local function StartRejoinTimer()
         if RejoinTimer then
@@ -707,8 +631,7 @@ local function CreateGUI()
         end)
     end
 
-    -- ========== ОБРАБОТЧИКИ ==========
-
+    -- Подключаем кнопки
     StartButton.MouseButton1Click:Connect(StartFling)
     StopButton.MouseButton1Click:Connect(StopFling)
     RejoinNowButton.MouseButton1Click:Connect(function() PerformRejoin(true) end)
@@ -740,6 +663,7 @@ local function CreateGUI()
         GuiCreated = false
     end)
 
+    -- Обработчики событий
     Players.PlayerAdded:Connect(function()
         wait(1)
         UpdatePlayerList()
@@ -759,4 +683,66 @@ local function CreateGUI()
     Player.CharacterAdded:Connect(function(character)
         print("[Скрипт] Персонаж переродился!")
         local humanoid = character:WaitForChild("Humanoid")
-       
+        UpdateCharStatus(true)
+        wait(2)
+        RestoreAfterRespawn()
+
+        humanoid.Died:Connect(function()
+            print("[Скрипт] Персонаж умер!")
+            UpdateCharStatus(false)
+            if FlingActive then
+                FlingActive = false
+                SaveState()
+            end
+        end)
+    end)
+
+    if Player.Character then
+        local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            UpdateCharStatus(true)
+            humanoid.Died:Connect(function()
+                print("[Скрипт] Персонаж умер!")
+                UpdateCharStatus(false)
+                if FlingActive then
+                    FlingActive = false
+                    SaveState()
+                end
+            end)
+        end
+    end
+
+    -- Автозапуск
+    spawn(function()
+        wait(3)
+        UpdatePlayerList()
+
+        local char = Player.Character
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+
+        if char and humanoid and humanoid.Health > 0 then
+            UpdateCharStatus(true)
+            SelectAllPlayers()
+            wait(1)
+            StartFling()
+            StartRejoinTimer()
+            Message("🔥 АВТО-УБИЙСТВО", "Скрипт активен!", 5)
+        else
+            Message("⏳ Ожидание", "Жду появления персонажа...", 3)
+            local character = Player.CharacterAdded:Wait()
+            character:WaitForChild("Humanoid")
+            wait(2)
+            UpdateCharStatus(true)
+            SelectAllPlayers()
+            wait(1)
+            StartFling()
+            StartRejoinTimer()
+            Message("🔥 АВТО-УБИЙСТВО", "Скрипт активен!", 5)
+        end
+    end)
+
+    GuiCreated = true
+    print("🔥 АВТО-ФЛИНГ АКТИВИРОВАН! ВСЕ ФУНКЦИИ ЗАГРУЖЕНЫ!")
+end
+
+CreateGUI()
